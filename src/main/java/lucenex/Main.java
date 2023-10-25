@@ -3,15 +3,13 @@ package lucenex;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.CharArraySet;
-import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
+import org.apache.lucene.analysis.core.SimpleAnalyzer;
 import org.apache.lucene.analysis.it.ItalianAnalyzer;
 import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -25,6 +23,7 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -56,7 +55,9 @@ public class Main {
 
 		while (true) {
 			System.out.println(
-					"\nUsage: insert \"title: \" or \"content: \" followed by a term or a phrase to search for.\n"
+					"\nUsage:\n"
+					+ "Insert \"title: \" or \"content: \" followed by a term or a phrase to search for.\n"
+							+ "Insert \"all\" to get all the documents.\n"
 							+ "Insert \"exit\" to close the program.\n");
 			System.out.print("Enter query: ");
 			input = scanner.nextLine();
@@ -66,7 +67,7 @@ public class Main {
 
 			if (input.startsWith("title:")) {
 				String title = input.substring(7);
-				parser = new QueryParser("title", new WhitespaceAnalyzer());
+				parser = new QueryParser("title", new SimpleAnalyzer());
 				try {
 					query = parser.parse(title);
 				} catch (ParseException e) {
@@ -83,6 +84,8 @@ public class Main {
 			} else if (input.equals("exit")) {
 				System.out.println("Goodbye.\n");
 				break;
+			} else if (input.equals("all")) {
+				query = new MatchAllDocsQuery();
 			} else {
 				System.out.println("Invalid input.\n");
 			}
@@ -97,12 +100,13 @@ public class Main {
 
 	public static void indexDocs(Directory directory, Codec codec, List<Document> documents) throws IOException {
 		Analyzer defaultAnalyzer = new StandardAnalyzer();
-		CharArraySet stopWords = new CharArraySet(Arrays.asList(
-				"a, ad, al, alla, alle, agli, all', alla, anzi, anche, avanti, c, ci, col, coi, con, contro, da, dai, dal, dall', dalla, dappertutto, del, dell', della, dentro, di, dove, e, ecco, fra, gli, il, in, infatti, insomma, invece, l', lo, lui, ma, me, meno, molto, ne, negli, nell', nella, nemmeno, no, noi, non, per, però, piuttosto, più, più o meno, quando, quasi, quanto, sarebbe, sarebbe stato, se, sebbene, soltanto, sopra, sotto, sulla, sui, sul, sulle, tra, tu, tuttavia, verso, vi, voi"),
-				true);
+//		CharArraySet stopWords = new CharArraySet(Arrays.asList(
+//				"a, ad, al, alla, alle, agli, all', alla, anzi, anche, avanti, c, ci, col, coi, con, contro, da, dai, dal, dall', dalla, dappertutto, del, dell', della, dentro, di, dove, e, ecco, fra, gli, il, in, infatti, insomma, invece, l', lo, lui, ma, me, meno, molto, ne, negli, nell', nella, nemmeno, no, noi, non, per, però, piuttosto, più, più o meno, quando, quasi, quanto, sarebbe, sarebbe stato, se, sebbene, soltanto, sopra, sotto, sulla, sui, sul, sulle, tra, tu, tuttavia, verso, vi, voi"),
+//				true);
 		Map<String, Analyzer> perFieldAnalyzers = new HashMap<>();
-		perFieldAnalyzers.put("title", new WhitespaceAnalyzer());
-		//perFieldAnalyzers.put("content", new StandardAnalyzer(stopWords));
+		// perFieldAnalyzers.put("title", new WhitespaceAnalyzer());
+		perFieldAnalyzers.put("title", new SimpleAnalyzer());
+		// perFieldAnalyzers.put("content", new StandardAnalyzer(stopWords));
 		perFieldAnalyzers.put("content", new ItalianAnalyzer());
 
 		Analyzer analyzer = new PerFieldAnalyzerWrapper(defaultAnalyzer, perFieldAnalyzers);
@@ -132,7 +136,7 @@ public class Main {
 		if (numberOfHits == 0) {
 			System.out.println("No document found. Please try again with other terms or phrases.\n");
 		}
-		
+
 		for (int i = 0; i < numberOfHits; i++) {
 			ScoreDoc scoreDoc = hits.scoreDocs[i];
 			Document doc = searcher.doc(scoreDoc.doc);
